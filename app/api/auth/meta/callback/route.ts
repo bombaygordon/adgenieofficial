@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getMetaAccessToken, getMetaUserAccounts } from '@/app/lib/meta';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 
 export async function GET(request: Request) {
   try {
@@ -51,8 +51,11 @@ export async function GET(request: Request) {
       });
     }
     
-    // Get the origin domain from the request URL
-    const origin = url.origin;
+    // Get the origin from headers
+    const headersList = headers();
+    const host = headersList.get('host') || '';
+    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+    const origin = `${protocol}://${host}`;
     
     // Create redirect URL to the root with connection status
     const redirectUrl = new URL('/', origin);
@@ -62,8 +65,12 @@ export async function GET(request: Request) {
     return NextResponse.redirect(redirectUrl.toString());
   } catch (error) {
     console.error('Meta auth callback error:', error);
-    // Get the origin domain from the request URL for error redirect
-    const origin = new URL(request.url).origin;
+    // Get the origin from headers for error redirect
+    const headersList = headers();
+    const host = headersList.get('host') || '';
+    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+    const origin = `${protocol}://${host}`;
+    
     const redirectUrl = new URL('/', origin);
     redirectUrl.searchParams.set('error', 'auth_failed');
     return NextResponse.redirect(redirectUrl.toString());

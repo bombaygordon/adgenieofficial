@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, Suspense } from 'react';
 import { Facebook } from 'lucide-react';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
@@ -27,7 +27,7 @@ interface AccountsContextType {
 
 const AccountsContext = createContext<AccountsContextType | undefined>(undefined);
 
-export function AccountsProvider({ children }: { children: React.ReactNode }) {
+function AccountsProviderInner({ children }: { children: React.ReactNode }) {
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const searchParams = useSearchParams();
 
@@ -127,6 +127,14 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
     }}>
       {children}
     </AccountsContext.Provider>
+  );
+}
+
+export function AccountsProvider({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={null}>
+      <AccountsProviderInner>{children}</AccountsProviderInner>
+    </Suspense>
   );
 }
 
