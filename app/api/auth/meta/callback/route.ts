@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMetaAccessToken, getMetaUserAccounts } from '@/app/lib/meta';
+import { cookies } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,12 +25,25 @@ export async function GET(request: NextRequest) {
     // Get user's ad accounts
     const accountsData = await getMetaUserAccounts(tokenData.access_token);
 
-    // Store the token and account data (you'll need to implement this based on your storage solution)
-    // For now, we'll just return success and redirect to the dashboard
+    // Store the token in a secure cookie
+    const cookieStore = cookies();
+    cookieStore.set('meta_access_token', tokenData.access_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: tokenData.expires_in
+    });
+
+    // Store account data in a cookie (non-sensitive data)
+    cookieStore.set('meta_accounts', JSON.stringify(accountsData), {
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: tokenData.expires_in
+    });
     
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    return NextResponse.redirect(new URL('/data-sources?connected=meta', request.url));
   } catch (error) {
     console.error('Meta auth callback error:', error);
-    return NextResponse.redirect(new URL('/dashboard?error=auth_failed', request.url));
+    return NextResponse.redirect(new URL('/data-sources?error=auth_failed', request.url));
   }
 } 

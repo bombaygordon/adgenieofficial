@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Facebook, ArrowRight } from 'lucide-react';
 import { useAccounts, type Platform } from '../context/AccountsContext';
 import { getMetaAuthUrl } from '../lib/meta';
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 
 const availablePlatforms: Platform[] = [
   {
@@ -52,6 +53,9 @@ const availablePlatforms: Platform[] = [
 
 export default function DataSources() {
   const { platforms, connectPlatform } = useAccounts();
+  const searchParams = useSearchParams();
+  const error = searchParams.get('error');
+  const connected = searchParams.get('connected');
   const connectedPlatformIds = platforms.map(p => p.id);
 
   const handleConnect = (platform: Platform) => {
@@ -75,6 +79,19 @@ export default function DataSources() {
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
       <h1 className="text-2xl font-bold mb-6">Connect Data Sources</h1>
+      
+      {error === 'auth_failed' && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          Failed to connect. Please try again.
+        </div>
+      )}
+
+      {connected === 'meta' && (
+        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700">
+          Successfully connected to Meta Ads!
+        </div>
+      )}
+
       <div className="grid gap-6">
         {availablePlatforms.map((platform) => {
           const isConnected = connectedPlatformIds.includes(platform.id);
