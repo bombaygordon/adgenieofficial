@@ -41,9 +41,9 @@ export async function GET(request: NextRequest) {
       maxAge: tokenData.expires_in
     });
     
-    return NextResponse.redirect(new URL('/data-sources?connected=meta', request.url));
+    return NextResponse.redirect(new URL('/?connected=meta', request.url));
   } catch (error) {
     console.error('Meta auth callback error:', error);
-    return NextResponse.redirect(new URL('/data-sources?error=auth_failed', request.url));
+    return NextResponse.redirect(new URL('/?error=auth_failed', request.url));
   }
 } 
