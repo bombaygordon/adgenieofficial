@@ -54,12 +54,18 @@ export async function GET(request: Request) {
     // Get the origin domain from the request URL
     const origin = url.origin;
     
-    // Redirect back to the same domain the request came from
-    return NextResponse.redirect(`${origin}/dashboard?platform=facebook&status=connected`);
+    // Create redirect URL to the root with connection status
+    const redirectUrl = new URL('/', origin);
+    redirectUrl.searchParams.set('platform', 'facebook');
+    redirectUrl.searchParams.set('status', 'connected');
+
+    return NextResponse.redirect(redirectUrl.toString());
   } catch (error) {
     console.error('Meta auth callback error:', error);
     // Get the origin domain from the request URL for error redirect
     const origin = new URL(request.url).origin;
-    return NextResponse.redirect(`${origin}/dashboard?error=auth_failed`);
+    const redirectUrl = new URL('/', origin);
+    redirectUrl.searchParams.set('error', 'auth_failed');
+    return NextResponse.redirect(redirectUrl.toString());
   }
 } 
