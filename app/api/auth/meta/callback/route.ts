@@ -26,28 +26,31 @@ export async function GET(request: Request) {
     // Store the token and account data in cookies
     const cookieStore = cookies();
     
-    // Store the access token (encrypted in a real app)
+    // Store the access token with client-side access
     cookieStore.set('meta_access_token', tokenData.access_token, {
-      httpOnly: true,
+      httpOnly: false, // Allow client-side access
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: tokenData.expires_in
+      maxAge: tokenData.expires_in,
+      path: '/' // Ensure cookie is available across all paths
     });
 
-    // Store the first ad account's ID (you might want to let users choose which account)
+    // Store the first ad account's ID
     if (accountsData.data && accountsData.data.length > 0) {
       const firstAccount = accountsData.data[0];
       cookieStore.set('meta_account_id', firstAccount.account_id, {
-        httpOnly: true,
+        httpOnly: false, // Allow client-side access
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: tokenData.expires_in
+        maxAge: tokenData.expires_in,
+        path: '/' // Ensure cookie is available across all paths
       });
       cookieStore.set('meta_account_name', firstAccount.name, {
-        httpOnly: true,
+        httpOnly: false, // Allow client-side access
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: tokenData.expires_in
+        maxAge: tokenData.expires_in,
+        path: '/' // Ensure cookie is available across all paths
       });
     }
     
@@ -62,7 +65,37 @@ export async function GET(request: Request) {
     redirectUrl.searchParams.set('platform', 'facebook');
     redirectUrl.searchParams.set('status', 'connected');
 
-    return NextResponse.redirect(redirectUrl.toString());
+    // Create the response with cookies
+    const response = NextResponse.redirect(redirectUrl.toString());
+
+    // Set cookies directly on response as well
+    response.cookies.set('meta_access_token', tokenData.access_token, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: tokenData.expires_in,
+      path: '/'
+    });
+
+    if (accountsData.data && accountsData.data.length > 0) {
+      const firstAccount = accountsData.data[0];
+      response.cookies.set('meta_account_id', firstAccount.account_id, {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: tokenData.expires_in,
+        path: '/'
+      });
+      response.cookies.set('meta_account_name', firstAccount.name, {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: tokenData.expires_in,
+        path: '/'
+      });
+    }
+
+    return response;
   } catch (error) {
     console.error('Meta auth callback error:', error);
     // Get the origin from headers for error redirect

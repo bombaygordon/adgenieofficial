@@ -61,6 +61,16 @@ const availablePlatforms: Platform[] = [
   }
 ];
 
+function getCookie(name: string): string | undefined {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) {
+    const cookieValue = parts.pop()?.split(';').shift();
+    return cookieValue;
+  }
+  return undefined;
+}
+
 export default function DataSources() {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState<Platform | null>(null);
@@ -76,13 +86,16 @@ export default function DataSources() {
       console.log('Loading Meta accounts...');
       console.log('Current platforms:', platforms);
 
-      // Get access token from cookie
-      const accessToken = document.cookie
-        .split('; ')
-        .find(row => row.startsWith('meta_access_token='))
-        ?.split('=')[1];
+      // Get access token from cookie using the helper function
+      const accessToken = getCookie('meta_access_token');
+      const accountId = getCookie('meta_account_id');
+      const accountName = getCookie('meta_account_name');
 
-      console.log('Access token found:', !!accessToken);
+      console.log('Cookie values:', {
+        hasAccessToken: !!accessToken,
+        accountId,
+        accountName
+      });
 
       if (!accessToken) {
         console.log('No access token found in cookies');
@@ -110,8 +123,8 @@ export default function DataSources() {
             description: 'Connect your Facebook Ads account to analyze ad performance',
             icon: Facebook,
             status: 'connected',
-            accountId: firstAccount.account_id,
-            accountName: firstAccount.name,
+            accountId: accountId || firstAccount.account_id,
+            accountName: accountName || firstAccount.name,
             accessToken
           };
           handleAccountSelect(facebookPlatform, firstAccount);
