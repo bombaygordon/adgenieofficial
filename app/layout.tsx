@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'AdGenie Dashboard',
-  description: 'A comprehensive dashboard for managing your ad campaigns across multiple platforms.',
+  description: 'AI-powered advertising analytics dashboard',
 };
 
 export default function RootLayout({
