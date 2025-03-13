@@ -10,6 +10,7 @@ export interface Platform {
   accountId: string;
   accountName: string;
   icon: React.ElementType;
+  description: string;
 }
 
 interface AccountsContextType {
@@ -28,7 +29,8 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
       status: 'connected',
       accountId: 'fb123',
       accountName: 'Main Facebook Account',
-      icon: Facebook
+      icon: Facebook,
+      description: 'Main Facebook Account'
     },
     {
       id: 'instagram1',
@@ -36,7 +38,8 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
       status: 'connected',
       accountId: 'ig123',
       accountName: 'Business Instagram',
-      icon: Instagram
+      icon: Instagram,
+      description: 'Business Instagram'
     },
     {
       id: 'youtube1',
@@ -44,7 +47,8 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
       status: 'disconnected',
       accountId: 'yt123',
       accountName: 'Brand Channel',
-      icon: Youtube
+      icon: Youtube,
+      description: 'Brand Channel'
     }
   ]);
 
