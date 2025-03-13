@@ -1,13 +1,15 @@
 'use client';
 
 import React, { createContext, useContext, useState } from 'react';
+import { Facebook, Instagram, Youtube } from 'lucide-react';
 
-interface Platform {
+export interface Platform {
   id: string;
   name: string;
   status: 'connected' | 'disconnected';
   accountId: string;
   accountName: string;
+  icon: React.ElementType;
 }
 
 interface AccountsContextType {
@@ -21,25 +23,28 @@ const AccountsContext = createContext<AccountsContextType | undefined>(undefined
 export function AccountsProvider({ children }: { children: React.ReactNode }) {
   const [platforms, setPlatforms] = useState<Platform[]>([
     {
-      id: 'facebook',
+      id: 'facebook1',
       name: 'Facebook',
       status: 'connected',
-      accountId: 'fb-123',
-      accountName: 'Facebook Main'
+      accountId: 'fb123',
+      accountName: 'Main Facebook Account',
+      icon: Facebook
     },
     {
-      id: 'google',
-      name: 'Google',
+      id: 'instagram1',
+      name: 'Instagram',
       status: 'connected',
-      accountId: 'g-456',
-      accountName: 'Google Ads Primary'
+      accountId: 'ig123',
+      accountName: 'Business Instagram',
+      icon: Instagram
     },
     {
-      id: 'tiktok',
-      name: 'TikTok',
-      status: 'connected',
-      accountId: 'tt-789',
-      accountName: 'TikTok Business'
+      id: 'youtube1',
+      name: 'YouTube',
+      status: 'disconnected',
+      accountId: 'yt123',
+      accountName: 'Brand Channel',
+      icon: Youtube
     }
   ]);
 
@@ -48,9 +53,7 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
   };
 
   const disconnectPlatform = (platformId: string) => {
-    setPlatforms(prev => prev.map(p => 
-      p.id === platformId ? { ...p, status: 'disconnected' as const } : p
-    ));
+    setPlatforms(prev => prev.filter(p => p.id !== platformId));
   };
 
   return (
