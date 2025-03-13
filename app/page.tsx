@@ -10,7 +10,7 @@ const DashboardComponent = dynamic(() => import('./components/Dashboard'), {
   ssr: false
 });
 
-export default function Home() {
+const StatusMessages = () => {
   const searchParams = useSearchParams();
   const error = searchParams.get('error');
   const connected = searchParams.get('connected');
@@ -22,16 +22,7 @@ export default function Home() {
   }, [error]);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      <h1 className="text-4xl font-bold mb-8">AdGenie Dashboard</h1>
-      <div className="grid gap-4">
-        <Link 
-          href="/data-sources"
-          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          Connect Data Sources
-        </Link>
-      </div>
+    <>
       {error === 'auth_failed' && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
           Failed to connect to Meta. Please try again.
@@ -43,6 +34,26 @@ export default function Home() {
           Successfully connected to Meta Ads!
         </div>
       )}
+    </>
+  );
+};
+
+export default function Home() {
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center p-24">
+      <h1 className="text-4xl font-bold mb-8">AdGenie Dashboard</h1>
+      <div className="grid gap-4">
+        <Link 
+          href="/data-sources"
+          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          Connect Data Sources
+        </Link>
+      </div>
+      
+      <Suspense fallback={null}>
+        <StatusMessages />
+      </Suspense>
 
       <Suspense fallback={<div>Loading...</div>}>
         <DashboardComponent />
