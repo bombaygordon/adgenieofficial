@@ -1,7 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useState } from 'react';
-import { Facebook, Instagram, Youtube } from 'lucide-react';
+import { Facebook } from 'lucide-react';
+import Image from 'next/image';
 
 export interface Platform {
   id: string;
@@ -22,38 +23,10 @@ interface AccountsContextType {
 const AccountsContext = createContext<AccountsContextType | undefined>(undefined);
 
 export function AccountsProvider({ children }: { children: React.ReactNode }) {
-  const [platforms, setPlatforms] = useState<Platform[]>([
-    {
-      id: 'facebook1',
-      name: 'Facebook',
-      status: 'connected',
-      accountId: 'fb123',
-      accountName: 'Main Facebook Account',
-      icon: Facebook,
-      description: 'Main Facebook Account'
-    },
-    {
-      id: 'instagram1',
-      name: 'Instagram',
-      status: 'connected',
-      accountId: 'ig123',
-      accountName: 'Business Instagram',
-      icon: Instagram,
-      description: 'Business Instagram'
-    },
-    {
-      id: 'youtube1',
-      name: 'YouTube',
-      status: 'disconnected',
-      accountId: 'yt123',
-      accountName: 'Brand Channel',
-      icon: Youtube,
-      description: 'Brand Channel'
-    }
-  ]);
+  const [platforms, setPlatforms] = useState<Platform[]>([]);
 
   const connectPlatform = (platform: Platform) => {
-    setPlatforms(prev => [...prev, platform]);
+    setPlatforms(prev => [...prev, { ...platform, status: 'connected' }]);
   };
 
   const disconnectPlatform = (platformId: string) => {

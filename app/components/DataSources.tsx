@@ -1,40 +1,76 @@
 import React from 'react';
-import { Facebook, Instagram, Youtube, ArrowRight } from 'lucide-react';
+import { Facebook, ArrowRight } from 'lucide-react';
 import { useAccounts, type Platform } from '../context/AccountsContext';
+import { getMetaAuthUrl } from '../lib/meta';
+import Image from 'next/image';
 
 const availablePlatforms: Platform[] = [
   {
-    id: 'facebook1',
-    name: 'Facebook',
-    description: 'Connect your Facebook Ads account',
+    id: 'facebook',
+    name: 'Facebook Ads',
+    description: 'Connect your Facebook Ads account to analyze ad performance',
     icon: Facebook,
     status: 'disconnected',
     accountId: '',
-    accountName: 'Facebook Ads Account'
+    accountName: ''
   },
   {
-    id: 'instagram1',
-    name: 'Instagram',
-    description: 'Connect your Instagram Business account',
-    icon: Instagram,
+    id: 'tiktok',
+    name: 'TikTok Ads',
+    description: 'Connect your TikTok Ads account to track campaign metrics',
+    icon: () => (
+      <Image
+        src="/tiktok-icon.svg"
+        alt="TikTok"
+        width={24}
+        height={24}
+        className="text-gray-600"
+      />
+    ),
     status: 'disconnected',
     accountId: '',
-    accountName: 'Instagram Business Account'
+    accountName: ''
   },
   {
-    id: 'youtube1',
-    name: 'YouTube',
-    description: 'Connect your YouTube channel',
-    icon: Youtube,
+    id: 'google',
+    name: 'Google Ads',
+    description: 'Connect your Google Ads account to monitor ad spend and ROI',
+    icon: () => (
+      <Image
+        src="/google-ads-icon.svg"
+        alt="Google Ads"
+        width={24}
+        height={24}
+        className="text-gray-600"
+      />
+    ),
     status: 'disconnected',
     accountId: '',
-    accountName: 'YouTube Channel'
+    accountName: ''
   }
 ];
 
 export default function DataSources() {
   const { platforms, connectPlatform } = useAccounts();
   const connectedPlatformIds = platforms.map(p => p.id);
+
+  const handleConnect = (platform: Platform) => {
+    switch (platform.id) {
+      case 'facebook':
+        window.location.href = getMetaAuthUrl();
+        break;
+      case 'tiktok':
+        // TODO: Implement TikTok OAuth flow
+        console.log('TikTok connection not implemented yet');
+        break;
+      case 'google':
+        // TODO: Implement Google OAuth flow
+        console.log('Google Ads connection not implemented yet');
+        break;
+      default:
+        connectPlatform(platform);
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
@@ -62,7 +98,7 @@ export default function DataSources() {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    connectPlatform(platform);
+                    handleConnect(platform);
                   }}
                   className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center"
                 >
