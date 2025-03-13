@@ -368,11 +368,15 @@ export default function Dashboard() {
       setError(null);
 
       try {
+        // Ensure we have valid dates
+        const endDate = dateRange.endDate || new Date().toISOString();
+        const startDate = dateRange.startDate || new Date(new Date(endDate).getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
         // Fetch performance data
         const metaPerformance = await getMetaAdsPerformance(
           metaPlatform.accessToken,
           metaPlatform.accountId,
-          dateRange
+          { startDate, endDate }
         );
         
         // Update performance data
@@ -395,13 +399,15 @@ export default function Dashboard() {
 
       } catch (err) {
         console.error('Error fetching Meta data:', err);
-        setError('Failed to fetch Meta data. Please try reconnecting your account.');
+        setError(err instanceof Error ? err.message : 'Failed to fetch Meta data. Please try reconnecting your account.');
       } finally {
         setIsLoadingData(false);
       }
     }
 
-    fetchMetaData();
+    if (connectedPlatforms.some(p => p.id === 'facebook')) {
+      fetchMetaData();
+    }
   }, [connectedPlatforms, dateRange]);
 
   // Early return if data is not available
