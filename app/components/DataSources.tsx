@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Facebook, ChevronDown, ArrowRight, Check } from 'lucide-react';
+import { Facebook, ChevronDown, ArrowRight, Check, Loader2 } from 'lucide-react';
 import { useAccounts, type Platform } from '../context/AccountsContext';
 import { getMetaAuthUrl } from '../lib/meta';
 import { getMetaUserAccounts } from '../lib/meta';
@@ -64,20 +64,30 @@ export default function DataSources() {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState<Platform | null>(null);
   const [adAccounts, setAdAccounts] = useState<AdAccount[]>([]);
+  const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
   const { platforms, connectPlatform, updatePlatformToken } = useAccounts();
   const connectedPlatformIds = platforms.map(p => p.id);
 
-  // Load Meta ad accounts when component mounts
+  // Load Meta ad accounts when component mounts or when platforms change
   useEffect(() => {
     const loadMetaAccounts = async () => {
       const metaPlatform = platforms.find(p => p.id === 'facebook');
       if (!metaPlatform?.accessToken) return;
 
+      setIsLoadingAccounts(true);
       try {
         const accounts = await getMetaUserAccounts(metaPlatform.accessToken);
         setAdAccounts(accounts.data || []);
+        
+        // If we have accounts but no account is selected, select the first one
+        if (accounts.data?.length > 0 && !metaPlatform.accountId) {
+          const firstAccount = accounts.data[0];
+          handleAccountSelect(metaPlatform, firstAccount);
+        }
       } catch (error) {
         console.error('Error loading Meta accounts:', error);
+      } finally {
+        setIsLoadingAccounts(false);
       }
     };
 
@@ -116,8 +126,9 @@ export default function DataSources() {
   };
 
   const getButtonText = () => {
-    if (selectedPlatform) {
-      return selectedPlatform.accountName || 'Select Account';
+    const facebookPlatform = platforms.find(p => p.id === 'facebook');
+    if (facebookPlatform?.status === 'connected' && facebookPlatform.accountName) {
+      return `Facebook Ads - ${facebookPlatform.accountName}`;
     }
     return 'Connect Data Sources';
   };
@@ -126,9 +137,9 @@ export default function DataSources() {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="bg-white border rounded-lg px-4 py-2 flex items-center space-x-2 shadow-sm hover:bg-gray-50 transition-colors"
+        className="bg-white border rounded-lg px-4 py-2 flex items-center space-x-2 shadow-sm hover:bg-gray-50 transition-colors min-w-[200px]"
       >
-        <span className="text-sm font-medium">{getButtonText()}</span>
+        <span className="text-sm font-medium truncate">{getButtonText()}</span>
         <ChevronDown size={16} className={`text-gray-500 transform transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
@@ -145,7 +156,7 @@ export default function DataSources() {
                 const isConnected = connectedPlatformIds.includes(platform.id);
                 
                 return (
-                  <div key={platform.id}>
+                  <div key={platform.id} className="mb-4 last:mb-0">
                     <div className="flex items-center justify-between py-3">
                       <div className="flex items-center space-x-3">
                         <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
@@ -188,21 +199,32 @@ export default function DataSources() {
                     {/* Show ad accounts for connected platforms */}
                     {isConnected && platform.id === 'facebook' && (
                       <div className="ml-11 border-l border-gray-200 pl-4 mb-3">
-                        {adAccounts.map((account) => (
-                          <button
-                            key={account.account_id}
-                            onClick={() => handleAccountSelect(connectedPlatform!, account)}
-                            className="w-full text-left py-2 px-3 hover:bg-gray-50 rounded-md flex items-center justify-between group"
-                          >
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">{account.name}</div>
-                              <div className="text-xs text-gray-500">ID: {account.account_id}</div>
-                            </div>
-                            {connectedPlatform?.accountId === account.account_id && (
-                              <Check size={16} className="text-green-600" />
-                            )}
-                          </button>
-                        ))}
+                        {isLoadingAccounts ? (
+                          <div className="py-4 flex items-center justify-center">
+                            <Loader2 size={16} className="animate-spin text-gray-400" />
+                            <span className="ml-2 text-sm text-gray-500">Loading accounts...</span>
+                          </div>
+                        ) : adAccounts.length === 0 ? (
+                          <div className="py-4 text-sm text-gray-500 text-center">
+                            No ad accounts found
+                          </div>
+                        ) : (
+                          adAccounts.map((account) => (
+                            <button
+                              key={account.account_id}
+                              onClick={() => handleAccountSelect(connectedPlatform!, account)}
+                              className="w-full text-left py-2 px-3 hover:bg-gray-50 rounded-md flex items-center justify-between group"
+                            >
+                              <div>
+                                <div className="text-sm font-medium text-gray-900">{account.name}</div>
+                                <div className="text-xs text-gray-500">ID: {account.account_id}</div>
+                              </div>
+                              {connectedPlatform?.accountId === account.account_id && (
+                                <Check size={16} className="text-green-600" />
+                              )}
+                            </button>
+                          ))
+                        )}
                       </div>
                     )}
                   </div>
