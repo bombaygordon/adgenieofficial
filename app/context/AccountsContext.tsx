@@ -34,8 +34,11 @@ function AccountsProviderInner({ children }: { children: React.ReactNode }) {
   // Initialize platforms from cookies and URL parameters
   useEffect(() => {
     const initializePlatforms = async () => {
+      console.log('Initializing platforms...');
       const platform = searchParams.get('platform');
       const status = searchParams.get('status');
+
+      console.log('URL params:', { platform, status });
 
       if (platform === 'facebook' && status === 'connected') {
         // Get cookies
@@ -54,6 +57,12 @@ function AccountsProviderInner({ children }: { children: React.ReactNode }) {
           .find(row => row.startsWith('meta_account_name='))
           ?.split('=')[1];
 
+        console.log('Cookie values:', { 
+          hasAccessToken: !!accessToken,
+          accountId,
+          accountName
+        });
+
         if (accessToken) {
           // Initialize Facebook platform
           const facebookPlatform: Platform = {
@@ -67,27 +76,16 @@ function AccountsProviderInner({ children }: { children: React.ReactNode }) {
             accessToken
           };
 
-          // Load available accounts
-          try {
-            const accounts = await getMetaUserAccounts(accessToken);
-            if (accounts.data && accounts.data.length > 0) {
-              // If no account is selected, use the first one
-              if (!accountId) {
-                const firstAccount = accounts.data[0];
-                facebookPlatform.accountId = firstAccount.account_id;
-                facebookPlatform.accountName = firstAccount.name;
-              }
-            }
-          } catch (error) {
-            console.error('Error loading Meta accounts:', error);
-          }
+          console.log('Setting up Facebook platform:', facebookPlatform);
 
           setPlatforms(prev => {
             // Replace existing Facebook platform or add new one
             const exists = prev.some(p => p.id === 'facebook');
             if (exists) {
+              console.log('Updating existing Facebook platform');
               return prev.map(p => p.id === 'facebook' ? facebookPlatform : p);
             }
+            console.log('Adding new Facebook platform');
             return [...prev, facebookPlatform];
           });
         }
@@ -98,14 +96,17 @@ function AccountsProviderInner({ children }: { children: React.ReactNode }) {
   }, [searchParams]);
 
   const connectPlatform = (platform: Platform) => {
+    console.log('Connecting platform:', platform);
     setPlatforms(prev => [...prev, { ...platform, status: 'connected' }]);
   };
 
   const disconnectPlatform = (platformId: string) => {
+    console.log('Disconnecting platform:', platformId);
     setPlatforms(prev => prev.filter(p => p.id !== platformId));
   };
 
   const updatePlatformToken = (platformId: string, accessToken: string, accountId: string, accountName: string) => {
+    console.log('Updating platform token:', { platformId, accountId, accountName });
     setPlatforms(prev => prev.map(p => 
       p.id === platformId 
         ? { ...p, accessToken, accountId, accountName, status: 'connected' }
@@ -114,7 +115,9 @@ function AccountsProviderInner({ children }: { children: React.ReactNode }) {
   };
 
   const getPlatformToken = (platformId: string) => {
-    return platforms.find(p => p.id === platformId)?.accessToken;
+    const token = platforms.find(p => p.id === platformId)?.accessToken;
+    console.log('Getting platform token:', { platformId, hasToken: !!token });
+    return token;
   };
 
   return (

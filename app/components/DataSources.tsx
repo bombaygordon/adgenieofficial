@@ -6,6 +6,7 @@ import { useAccounts, type Platform } from '../context/AccountsContext';
 import { getMetaAuthUrl } from '../lib/meta';
 import { getMetaUserAccounts } from '../lib/meta';
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 
 interface AdAccount {
   account_id: string;
@@ -66,23 +67,55 @@ export default function DataSources() {
   const [adAccounts, setAdAccounts] = useState<AdAccount[]>([]);
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
   const { platforms, connectPlatform, updatePlatformToken } = useAccounts();
+  const searchParams = useSearchParams();
   const connectedPlatformIds = platforms.map(p => p.id);
 
   // Load Meta ad accounts when component mounts or when platforms change
   useEffect(() => {
     const loadMetaAccounts = async () => {
-      const metaPlatform = platforms.find(p => p.id === 'facebook');
-      if (!metaPlatform?.accessToken) return;
+      console.log('Loading Meta accounts...');
+      console.log('Current platforms:', platforms);
+
+      // Get access token from cookie
+      const accessToken = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('meta_access_token='))
+        ?.split('=')[1];
+
+      console.log('Access token found:', !!accessToken);
+
+      if (!accessToken) {
+        console.log('No access token found in cookies');
+        return;
+      }
 
       setIsLoadingAccounts(true);
       try {
-        const accounts = await getMetaUserAccounts(metaPlatform.accessToken);
+        console.log('Fetching Meta accounts...');
+        const accounts = await getMetaUserAccounts(accessToken);
+        console.log('Meta accounts fetched:', accounts);
         setAdAccounts(accounts.data || []);
+
+        // Get the platform from URL parameters
+        const platform = searchParams.get('platform');
+        const status = searchParams.get('status');
         
-        // If we have accounts but no account is selected, select the first one
-        if (accounts.data?.length > 0 && !metaPlatform.accountId) {
+        // If we're coming from OAuth callback and have accounts
+        if (platform === 'facebook' && status === 'connected' && accounts.data?.length > 0) {
+          console.log('Selecting first account after OAuth callback');
           const firstAccount = accounts.data[0];
-          handleAccountSelect(metaPlatform, firstAccount);
+          const facebookPlatform: Platform = {
+            id: 'facebook',
+            name: 'Facebook Ads',
+            description: 'Connect your Facebook Ads account to analyze ad performance',
+            icon: Facebook,
+            status: 'connected',
+            accountId: firstAccount.account_id,
+            accountName: firstAccount.name,
+            accessToken
+          };
+          handleAccountSelect(facebookPlatform, firstAccount);
+          setIsOpen(true); // Open the dropdown to show available accounts
         }
       } catch (error) {
         console.error('Error loading Meta accounts:', error);
@@ -91,8 +124,13 @@ export default function DataSources() {
       }
     };
 
-    loadMetaAccounts();
-  }, [platforms]);
+    // Check if we should load accounts
+    const platform = searchParams.get('platform');
+    const status = searchParams.get('status');
+    if (platform === 'facebook' && status === 'connected') {
+      loadMetaAccounts();
+    }
+  }, [searchParams, platforms]);
 
   const handleConnect = (platform: Platform) => {
     switch (platform.id) {
@@ -113,7 +151,11 @@ export default function DataSources() {
   };
 
   const handleAccountSelect = (platform: Platform, account: AdAccount) => {
-    if (!platform.accessToken) return;
+    console.log('Selecting account:', account);
+    if (!platform.accessToken) {
+      console.log('No access token available');
+      return;
+    }
     
     updatePlatformToken(
       platform.id,
