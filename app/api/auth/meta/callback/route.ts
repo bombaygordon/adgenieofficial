@@ -51,11 +51,15 @@ export async function GET(request: Request) {
       });
     }
     
-    // Redirect to the main domain
-    return NextResponse.redirect('https://app.adgenie.co.nz/dashboard?platform=facebook&status=connected');
+    // Get the origin domain from the request URL
+    const origin = url.origin;
+    
+    // Redirect back to the same domain the request came from
+    return NextResponse.redirect(`${origin}/dashboard?platform=facebook&status=connected`);
   } catch (error) {
     console.error('Meta auth callback error:', error);
-    // Also update the error redirect
-    return NextResponse.redirect('https://app.adgenie.co.nz/dashboard?error=auth_failed');
+    // Get the origin domain from the request URL for error redirect
+    const origin = new URL(request.url).origin;
+    return NextResponse.redirect(`${origin}/dashboard?error=auth_failed`);
   }
 } 

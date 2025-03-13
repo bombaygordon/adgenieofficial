@@ -10,7 +10,11 @@ export interface MetaAuthConfig {
 export const META_CONFIG: MetaAuthConfig = {
   clientId: process.env.NEXT_PUBLIC_META_APP_ID || '',
   clientSecret: process.env.META_APP_SECRET || '',
-  redirectUri: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/meta/callback`,
+  redirectUri: process.env.NEXT_PUBLIC_APP_URL 
+    ? `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/meta/callback`
+    : typeof window !== 'undefined'
+      ? `${window.location.origin}/api/auth/meta/callback`
+      : '',
   scopes: [
     'ads_read',
     'ads_management',
@@ -24,9 +28,15 @@ export const META_CONFIG: MetaAuthConfig = {
 };
 
 export function getMetaAuthUrl(): string {
+  // Get the current origin if we're in the browser
+  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL;
+  
+  // Use the current origin for the redirect URI
+  const redirectUri = `${currentOrigin}/api/auth/meta/callback`;
+
   const params = new URLSearchParams({
     client_id: META_CONFIG.clientId,
-    redirect_uri: META_CONFIG.redirectUri,
+    redirect_uri: redirectUri,
     scope: META_CONFIG.scopes.join(','),
     response_type: 'code',
     state: Math.random().toString(36).substring(7)
@@ -40,10 +50,16 @@ export async function getMetaAccessToken(code: string): Promise<{
   token_type: string;
   expires_in: number;
 }> {
+  // Get the current origin if we're in the browser
+  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL;
+  
+  // Use the current origin for the redirect URI
+  const redirectUri = `${currentOrigin}/api/auth/meta/callback`;
+
   const params = new URLSearchParams({
     client_id: META_CONFIG.clientId,
     client_secret: META_CONFIG.clientSecret,
-    redirect_uri: META_CONFIG.redirectUri,
+    redirect_uri: redirectUri,
     code: code
   });
 
