@@ -12,12 +12,15 @@ export interface Platform {
   accountName: string;
   icon: React.ElementType;
   description: string;
+  accessToken?: string;
 }
 
 interface AccountsContextType {
   platforms: Platform[];
   connectPlatform: (platform: Platform) => void;
   disconnectPlatform: (platformId: string) => void;
+  updatePlatformToken: (platformId: string, accessToken: string, accountId: string, accountName: string) => void;
+  getPlatformToken: (platformId: string) => string | undefined;
 }
 
 const AccountsContext = createContext<AccountsContextType | undefined>(undefined);
@@ -33,8 +36,26 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
     setPlatforms(prev => prev.filter(p => p.id !== platformId));
   };
 
+  const updatePlatformToken = (platformId: string, accessToken: string, accountId: string, accountName: string) => {
+    setPlatforms(prev => prev.map(p => 
+      p.id === platformId 
+        ? { ...p, accessToken, accountId, accountName, status: 'connected' }
+        : p
+    ));
+  };
+
+  const getPlatformToken = (platformId: string) => {
+    return platforms.find(p => p.id === platformId)?.accessToken;
+  };
+
   return (
-    <AccountsContext.Provider value={{ platforms, connectPlatform, disconnectPlatform }}>
+    <AccountsContext.Provider value={{ 
+      platforms, 
+      connectPlatform, 
+      disconnectPlatform,
+      updatePlatformToken,
+      getPlatformToken
+    }}>
       {children}
     </AccountsContext.Provider>
   );
