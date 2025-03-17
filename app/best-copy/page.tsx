@@ -34,11 +34,11 @@ export default function BestCopyPage() {
                   <div className="flex space-x-4 text-sm">
                     <div className="bg-gray-50 px-3 py-1.5 rounded-lg">
                       <span className="text-gray-500">CTR: </span>
-                      <span className="font-medium text-gray-900">{copy.ctr}%</span>
+                      <span className="font-medium text-gray-900">{(copy.ctr * 100).toFixed(2)}%</span>
                     </div>
                     <div className="bg-gray-50 px-3 py-1.5 rounded-lg">
-                      <span className="text-gray-500">Engagement: </span>
-                      <span className="font-medium text-gray-900">{copy.eng}%</span>
+                      <span className="text-gray-500">Conv. Rate: </span>
+                      <span className="font-medium text-gray-900">{(copy.conversionRate * 100).toFixed(2)}%</span>
                     </div>
                   </div>
                   <button className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-sm hover:bg-blue-100 transition-colors">
