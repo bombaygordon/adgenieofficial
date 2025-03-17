@@ -28,7 +28,7 @@ export default function BestLandingPagesPage() {
                       <ExternalLink size={14} className="ml-1 text-gray-400" />
                     </div>
                     <p className="text-sm text-gray-500 mt-1">
-                      {page.visitors.toLocaleString()} visitors
+                      {page.impressions.toLocaleString()} impressions
                     </p>
                   </div>
                   <button className="ml-4 text-sm bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg hover:bg-purple-200 transition-colors flex items-center whitespace-nowrap">
@@ -39,7 +39,7 @@ export default function BestLandingPagesPage() {
                 <div className="grid grid-cols-3 gap-4 mt-4">
                   <div className="bg-gray-50 p-3 rounded-lg">
                     <p className="text-sm text-gray-500">Conversion Rate</p>
-                    <p className="font-medium text-green-600">{page.convRate}%</p>
+                    <p className="font-medium text-green-600">{(page.conversionRate * 100).toFixed(2)}%</p>
                   </div>
                   <div className="bg-gray-50 p-3 rounded-lg">
                     <p className="text-sm text-gray-500">Avg. Time on Page</p>
