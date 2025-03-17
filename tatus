@@ -1,0 +1,108 @@
+[1mdiff --git a/app/components/Dashboard.tsx b/app/components/Dashboard.tsx[m
+[1mindex e6cb52a..b4be7c4 100644[m
+[1m--- a/app/components/Dashboard.tsx[m
+[1m+++ b/app/components/Dashboard.tsx[m
+[36m@@ -368,11 +368,15 @@[m [mexport default function Dashboard() {[m
+       setError(null);[m
+ [m
+       try {[m
+[32m+[m[32m        // Ensure we have valid dates[m
+[32m+[m[32m        const endDate = dateRange.endDate || new Date().toISOString();[m
+[32m+[m[32m        const startDate = dateRange.startDate || new Date(new Date(endDate).getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();[m
+[32m+[m
+         // Fetch performance data[m
+         const metaPerformance = await getMetaAdsPerformance([m
+           metaPlatform.accessToken,[m
+           metaPlatform.accountId,[m
+[31m-          dateRange[m
+[32m+[m[32m          { startDate, endDate }[m
+         );[m
+         [m
+         // Update performance data[m
+[36m@@ -395,13 +399,15 @@[m [mexport default function Dashboard() {[m
+ [m
+       } catch (err) {[m
+         console.error('Error fetching Meta data:', err);[m
+[31m-        setError('Failed to fetch Meta data. Please try reconnecting your account.');[m
+[32m+[m[32m        setError(err instanceof Error ? err.message : 'Failed to fetch Meta data. Please try reconnecting your account.');[m
+       } finally {[m
+         setIsLoadingData(false);[m
+       }[m
+     }[m
+ [m
+[31m-    fetchMetaData();[m
+[32m+[m[32m    if (connectedPlatforms.some(p => p.id === 'facebook')) {[m
+[32m+[m[32m      fetchMetaData();[m
+[32m+[m[32m    }[m
+   }, [connectedPlatforms, dateRange]);[m
+ [m
+   // Early return if data is not available[m
+[1mdiff --git a/app/layout.tsx b/app/layout.tsx[m
+[1mindex c282e8e..419746d 100644[m
+[1m--- a/app/layout.tsx[m
+[1m+++ b/app/layout.tsx[m
+[36m@@ -2,6 +2,7 @@[m [mimport './globals.css';[m
+ import type { Metadata } from 'next';[m
+ import { Inter } from 'next/font/google';[m
+ import { AccountsProvider } from './context/AccountsContext';[m
+[32m+[m[32mimport Script from 'next/script';[m
+ [m
+ const inter = Inter({ subsets: ['latin'] });[m
+ [m
+[36m@@ -21,6 +22,15 @@[m [mexport default function RootLayout({[m
+         <AccountsProvider>[m
+           {children}[m
+         </AccountsProvider>[m
+[32m+[m[32m        <Script id="clean-fb-hash">[m
+[32m+[m[32m          {`[m
+[32m+[m[32m            if (window.location.hash === '#_=_') {[m
+[32m+[m[32m              history.replaceState[m[41m [m
+[32m+[m[32m                ? window.history.replaceState(null, null, window.location.href.split('#')[0])[m
+[32m+[m[32m                : window.location.hash = '';[m
+[32m+[m[32m            }[m
+[32m+[m[32m          `}[m
+[32m+[m[32m        </Script>[m
+       </body>[m
+     </html>[m
+   );[m
+[1mdiff --git a/app/lib/metaApi.ts b/app/lib/metaApi.ts[m
+[1mindex 65533cb..88c6e27 100644[m
+[1m--- a/app/lib/metaApi.ts[m
+[1m+++ b/app/lib/metaApi.ts[m
+[36m@@ -20,14 +20,22 @@[m [minterface MetaAd {[m
+ [m
+ export async function getMetaAdsPerformance(accessToken: string, accountId: string, dateRange: { startDate: string; endDate: string }) {[m
+   try {[m
+[32m+[m[32m    // Ensure account ID is properly formatted[m
+[32m+[m[32m    const formattedAccountId = accountId.startsWith('act_') ? accountId : `act_${accountId}`;[m
+[32m+[m[41m    [m
+[32m+[m[32m    // Get current date for end date if not provided[m
+[32m+[m[32m    const endDate = dateRange.endDate ? new Date(dateRange.endDate) : new Date();[m
+[32m+[m[32m    // Set start date to 30 days before end date if not provided[m
+[32m+[m[32m    const startDate = dateRange.startDate ? new Date(dateRange.startDate) : new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);[m
+[32m+[m
+     // Fetch ads insights from Meta API[m
+     const response = await fetch([m
+[31m-      `https://graph.facebook.com/v19.0/${accountId}/insights?` +[m
+[32m+[m[32m      `https://graph.facebook.com/v19.0/${formattedAccountId}/insights?` +[m
+       new URLSearchParams({[m
+         fields: 'spend,clicks,impressions,actions,ctr,cpc,date_start,date_stop',[m
+         time_range: JSON.stringify({[m
+[31m-          since: new Date(dateRange.startDate).toISOString().split('T')[0],[m
+[31m-          until: new Date(dateRange.endDate).toISOString().split('T')[0][m
+[32m+[m[32m          since: startDate.toISOString().split('T')[0],[m
+[32m+[m[32m          until: endDate.toISOString().split('T')[0][m
+         }),[m
+         level: 'account',[m
+         access_token: accessToken[m
+[36m@@ -35,7 +43,9 @@[m [mexport async function getMetaAdsPerformance(accessToken: string, accountId: stri[m
+     );[m
+ [m
+     if (!response.ok) {[m
+[31m-      throw new Error('Failed to fetch Meta ads performance data');[m
+[32m+[m[32m      const errorData = await response.json();[m
+[32m+[m[32m      console.error('Meta API Error:', errorData);[m
+[32m+[m[32m      throw new Error(`Failed to fetch Meta ads performance data: ${errorData.error?.message || 'Unknown error'}`);[m
+     }[m
+ [m
+     const data = await response.json();[m

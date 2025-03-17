@@ -34,7 +34,7 @@ import {
   BarChart as BarChartIcon,
   LineChart as LineChartIcon,
 } from 'lucide-react';
-import { performanceData, platformData, topAds, landingPages, adCopy, headlines } from '../lib/mockData';
+import { performanceData, platformData, topAds, landingPages, headlines } from '../lib/mockData';
 import SideNav from './SideNav';
 import ConnectAccountDropdown from './ConnectAccountDropdown';
 import DataSources from './DataSources';
@@ -44,9 +44,10 @@ import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import { useDashboardState } from '../hooks/useDashboardState';
 import { Switch } from '@headlessui/react';
-import { getMetaAdsPerformance, getMetaTopAds } from '../lib/metaApi';
-import { PerformanceData, TopAd } from '../lib/mockData';
+import { getMetaAdsPerformance, getMetaTopAds, getMetaLandingPages, getMetaAdCopy } from '../lib/metaApi';
+import { PerformanceData, TopAd, LandingPage, AdCopy } from '../lib/mockData';
 import { Platform } from '../context/AccountsContext';
+import Link from 'next/link';
 
 // Define platform types
 interface PlatformData {
@@ -77,7 +78,7 @@ const availableMetrics: Metric[] = [
   { id: 'conversions', name: 'Conversions', format: 'number', value: 3847, change: 8.2, changeType: 'increase' },
   { id: 'cpc', name: 'Cost per Conversion', format: 'currency', value: 64.62, change: 3.1, changeType: 'decrease' },
   { id: 'roas', name: 'Total ROAS', format: 'multiplier', value: 2.8, change: 5.7, changeType: 'increase' },
-  { id: 'ctr', name: 'Click-Through Rate', format: 'percentage', value: 3.2, change: 0.8, changeType: 'increase' },
+  { id: 'ctr', name: 'Click-Through Rate', format: 'percentage', value: 0.39, change: 0.8, changeType: 'increase' },
   { id: 'impressions', name: 'Impressions', format: 'number', value: 1234567, change: 15.3, changeType: 'increase' },
   { id: 'clicks', name: 'Clicks', format: 'number', value: 45678, change: 10.2, changeType: 'increase' },
   { id: 'cpm', name: 'Cost per Mile', format: 'currency', value: 12.34, change: 2.1, changeType: 'decrease' }
@@ -108,18 +109,22 @@ const formatDistributionValue = (value: number, format: string) => {
         style: 'currency',
         currency: 'USD',
         minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
+        maximumFractionDigits: 3,
       }).format(value);
     case 'multiplier':
-      return `${value.toFixed(1)}x`;
+      return `${value.toFixed(3)}x`;
+    case 'percentage':
+      return `${value.toFixed(3)}%`;
     default:
-      return value.toLocaleString();
+      return value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 3 });
   }
 };
 
 const colors = ['#4267B2', '#DB4437', '#000000', '#E4405F'];
 
 const dateRangePresets = [
+  { label: 'Today', start: 0, end: 0 },
+  { label: 'Yesterday', start: -1, end: -1 },
   { label: 'Last 7 days', start: -7, end: 0 },
   { label: 'Last 30 days', start: -30, end: 0 },
   { label: 'Last 90 days', start: -90, end: 0 },
@@ -185,6 +190,28 @@ const updateMetricsWithComparison = (metrics: Metric[], isEnabled: boolean) => {
   });
 };
 
+// Add these interfaces after the existing interfaces
+interface AdMetricColumn {
+  id: string;
+  name: string;
+  format: 'currency' | 'number' | 'percentage' | 'multiplier';
+  key: keyof TopAd;
+  isVisible: boolean;
+}
+
+// Update the adMetricColumns constant
+const adMetricColumns: AdMetricColumn[] = [
+  { id: 'name', name: 'Ad Name', format: 'number', key: 'name', isVisible: true },
+  { id: 'platform', name: 'Platform', format: 'number', key: 'platform', isVisible: true },
+  { id: 'spend', name: 'Spend', format: 'currency', key: 'spend', isVisible: true },
+  { id: 'impressions', name: 'Impressions', format: 'number', key: 'impressions', isVisible: true },
+  { id: 'clicks', name: 'Clicks', format: 'number', key: 'clicks', isVisible: true },
+  { id: 'ctr', name: 'CTR', format: 'percentage', key: 'ctr', isVisible: true },
+  { id: 'conversions', name: 'Conversions', format: 'number', key: 'conversions', isVisible: true },
+  { id: 'costPerConversion', name: 'Cost per Conv.', format: 'currency', key: 'costPerConversion', isVisible: true },
+  { id: 'roas', name: 'ROAS', format: 'multiplier', key: 'roas', isVisible: true }
+];
+
 export default function Dashboard() {
   const {
     selectedMetrics,
@@ -196,12 +223,18 @@ export default function Dashboard() {
     reorderMetrics
   } = useDashboardState();
 
+  // Move the useState declarations here
+  const [selectedAdColumns, setSelectedAdColumns] = useState<AdMetricColumn[]>(adMetricColumns);
+  const [isColumnCustomizerOpen, setIsColumnCustomizerOpen] = useState(false);
+
   // Initialize state for data and navigation
-  const [performance, setPerformance] = useState<PerformanceData[]>(performanceData);
+  const [performance, setPerformance] = useState<PerformanceData[]>([]);
   const [platforms] = useState<PlatformData[]>(platformData);
-  const [topPerformingAds, setTopPerformingAds] = useState<TopAd[]>(topAds);
+  const [topPerformingAds, setTopPerformingAds] = useState<TopAd[]>(() => {
+    console.log('Initializing topPerformingAds with:', topAds);
+    return topAds;
+  });
   const [bestLandingPages] = useState(landingPages);
-  const [bestAdCopy] = useState(adCopy);
   const [bestHeadlines] = useState(headlines);
   const [isSideNavOpen, setIsSideNavOpen] = useState(false);
   const [isPlatformDropdownOpen, setIsPlatformDropdownOpen] = useState(false);
@@ -238,6 +271,26 @@ export default function Dashboard() {
     ? filteredPlatforms.find(p => p.id === selectedPlatformId)
     : null;
 
+  // Add debug logging for connected platforms
+  useEffect(() => {
+    console.log('Connected Platforms:', connectedPlatforms);
+    console.log('Selected Platform:', savedPlatform);
+    console.log('Top Performing Ads:', topPerformingAds);
+  }, [connectedPlatforms, savedPlatform, topPerformingAds]);
+
+  const getMatchingPlatformName = (platformId: string) => {
+    switch (platformId) {
+      case 'facebook':
+        return 'Facebook';
+      case 'google':
+        return 'Google';
+      case 'tiktok':
+        return 'TikTok';
+      default:
+        return '';
+    }
+  };
+
   const filteredData = {
     platforms: selectedPlatformId
       ? filteredPlatforms.filter(p => p.id === selectedPlatformId)
@@ -246,44 +299,46 @@ export default function Dashboard() {
       ? performance.filter(p => p.platform === selectedPlatform?.name.toLowerCase())
       : performance,
     topAds: savedPlatform
-      ? topPerformingAds.filter(ad => ad.platform.toLowerCase() === savedPlatform)
+      ? topPerformingAds.filter(ad => {
+          const expectedPlatformName = getMatchingPlatformName(savedPlatform);
+          console.log('Filtering ad:', {
+            ad,
+            savedPlatform,
+            expectedPlatformName,
+            match: ad.platform === expectedPlatformName
+          });
+          return ad.platform === expectedPlatformName;
+        })
       : topPerformingAds
   };
 
-  // Update the chartData useMemo to include comparison data
+  // Update the chartData useMemo to correctly handle performance data
   const chartData = useMemo(() => {
-    const currentData = selectedPlatformId
-      ? [{
-          id: selectedPlatformId,
-          name: filteredPlatforms.find(p => p.id === selectedPlatformId)?.name || '',
-          value: filteredData.performance
-            .filter(p => p.platform === filteredPlatforms.find(fp => fp.id === selectedPlatformId)?.name.toLowerCase())
-            .reduce((sum, p) => {
-              const value = p[distributionMetric as keyof typeof p];
-              return sum + (typeof value === 'number' ? value : 0);
-            }, 0),
-        }]
-      : filteredPlatforms.map(platform => ({
-          id: platform.id,
-          name: platform.name,
-          value: filteredData.performance
-            .filter(p => p.platform === platform.name.toLowerCase())
-            .reduce((sum, p) => {
-              const value = p[distributionMetric as keyof typeof p];
-              return sum + (typeof value === 'number' ? value : 0);
-            }, 0),
-        }));
+    // Group performance data by platform and sum up the ad spend
+    const platformTotals = performance.reduce((acc, data) => {
+      const platform = data.platform.toLowerCase();
+      if (!acc[platform]) {
+        acc[platform] = 0;
+      }
+      acc[platform] += data.adSpend || 0;
+      return acc;
+    }, {} as Record<string, number>);
 
-    if (!comparison.isEnabled) {
-      return currentData;
-    }
-
-    // Add comparison data
-    return currentData.map(item => ({
-      ...item,
-      previousValue: item.value * (0.8 + Math.random() * 0.4), // Simulated previous period data
+    // Convert to the format expected by the chart
+    const data = Object.entries(platformTotals).map(([platform, value]) => ({
+      id: platform,
+      name: platform.charAt(0).toUpperCase() + platform.slice(1), // Capitalize platform name
+      value: value
     }));
-  }, [selectedPlatformId, filteredPlatforms, filteredData.performance, distributionMetric, comparison.isEnabled]);
+
+    console.log('Chart Data:', {
+      performanceData: performance,
+      platformTotals,
+      chartData: data
+    });
+
+    return data;
+  }, [performance]);
 
   // Handle drag end for metric reordering
   const onDragEnd = (result: any) => {
@@ -295,15 +350,16 @@ export default function Dashboard() {
   const formatMetricValue = (metric: Metric) => {
     switch (metric.format) {
       case 'currency':
-        return `$${metric.value.toLocaleString()}`;
+        return `$${metric.value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 3 })}`;
       case 'number':
-        return metric.value.toLocaleString();
+        return metric.value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 3 });
       case 'percentage':
-        return `${metric.value}%`;
+        // Round to 2 decimal places and multiply by 100 since value is in decimal form
+        return `${(Math.round(metric.value * 10000) / 100).toFixed(2)}%`;
       case 'multiplier':
-        return `${metric.value}x`;
+        return `${metric.value.toFixed(3)}x`;
       default:
-        return metric.value;
+        return metric.value.toFixed(3);
     }
   };
 
@@ -320,26 +376,44 @@ export default function Dashboard() {
   const formatDistributionValue = (value: number, format: string) => {
     switch (format) {
       case 'currency':
-        return `$${value.toLocaleString()}`;
-      case 'number':
-        return value.toLocaleString();
-      case 'percentage':
-        return `${value}%`;
+        return new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'USD',
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 3,
+        }).format(value);
       case 'multiplier':
-        return `${value}x`;
+        return `${value.toFixed(3)}x`;
+      case 'percentage':
+        return `${value.toFixed(3)}%`;
       default:
-        return value;
+        return value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 3 });
     }
   };
 
   const getPresetRange = (preset: { start: number | string, end: number }) => {
     const end = new Date();
+    end.setHours(23, 59, 59, 999); // Set to end of day
     let start = new Date();
     
     if (typeof preset.start === 'number') {
-      start.setDate(end.getDate() + preset.start);
+      if (preset.start === 0) {
+        // Today: set start to beginning of today
+        start.setHours(0, 0, 0, 0);
+      } else if (preset.start === -1 && preset.end === -1) {
+        // Yesterday: set both start and end to yesterday
+        start.setDate(start.getDate() - 1);
+        start.setHours(0, 0, 0, 0);
+        end.setDate(end.getDate() - 1);
+        end.setHours(23, 59, 59, 999);
+      } else {
+        // Other day ranges
+        start.setDate(end.getDate() + preset.start);
+        start.setHours(0, 0, 0, 0);
+      }
     } else if (preset.start === 'year') {
-      start = new Date(end.getFullYear(), 0, 1);
+      start = new Date(end.getFullYear(), 0, 1); // January 1st of current year
+      start.setHours(0, 0, 0, 0);
     }
     
     return { start, end };
@@ -352,67 +426,396 @@ export default function Dashboard() {
   }, [comparison.isEnabled]);
 
   // Add state for metrics data
-  const [metricsData, setMetricsData] = useState<Metric[]>(availableMetrics);
+  const [metricsData, setMetricsData] = useState<Metric[]>([]);
 
   // Add state for real data
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch real data when connected to Meta
+  // Add state to track last fetched account and timestamp
+  const [lastFetchedAccountId, setLastFetchedAccountId] = useState<string | null>(null);
+  const [lastFetchTimestamp, setLastFetchTimestamp] = useState<number>(0);
+
+  // Add state for landing pages
+  const [landingPagesData, setLandingPagesData] = useState<LandingPage[]>([]);
+
+  // Add state for ad copy data
+  const [adCopyData, setAdCopyData] = useState<AdCopy[]>([]);
+
+  // Update the useEffect for platform changes
   useEffect(() => {
-    async function fetchMetaData() {
-      const metaPlatform = connectedPlatforms.find(p => p.id === 'facebook');
-      if (!metaPlatform?.accessToken || !metaPlatform.accountId) return;
+    if (savedPlatform) {
+      const platform = connectedPlatforms.find(p => p.id === savedPlatform);
+      if (platform?.accountId) {
+        console.log('Platform/account changed, forcing refresh:', {
+          platform: savedPlatform,
+          accountId: platform.accountId,
+          dateRange
+        });
+        // Force refresh by resetting lastFetchedAccountId and clearing existing data
+        setLastFetchedAccountId(null);
+        setLastFetchTimestamp(0);
+        setPerformance([]);
+        setTopPerformingAds([]);
+        setMetricsData([]);
+        setLandingPagesData([]);
+        setAdCopyData([]);
+      }
+    }
+  }, [savedPlatform, connectedPlatforms, dateRange]);
 
-      setIsLoadingData(true);
-      setError(null);
+  // Update the fetchMetaData function
+  async function fetchMetaData() {
+    console.log('fetchMetaData called with:', {
+      connectedPlatforms,
+      dateRange,
+      savedPlatform,
+      lastFetchedAccountId,
+      lastFetchTimestamp
+    });
 
+    const metaPlatform = connectedPlatforms.find(p => p.id === 'facebook');
+    if (!metaPlatform?.accessToken || !metaPlatform.accountId) {
+      console.log('No Meta platform or missing credentials:', { 
+        hasAccessToken: !!metaPlatform?.accessToken,
+        hasAccountId: !!metaPlatform?.accountId,
+        platform: metaPlatform 
+      });
+      return;
+    }
+
+    // Always fetch if it's a different account or date range changed
+    const isNewAccount = lastFetchedAccountId !== metaPlatform.accountId;
+    const now = Date.now();
+    const timeSinceLastFetch = now - lastFetchTimestamp;
+    
+    console.log('Data fetch check:', {
+      accountId: metaPlatform.accountId,
+      isNewAccount,
+      lastFetchedAccountId,
+      dateRange,
+      timeSinceLastFetch,
+      shouldFetch: isNewAccount || timeSinceLastFetch >= 30000
+    });
+
+    // Skip only if it's the same account and fetched recently with the same date range
+    if (!isNewAccount && timeSinceLastFetch < 30000) {
+      console.log('Using cached data for account:', {
+        accountId: metaPlatform.accountId,
+        timeSinceLastFetch,
+        currentAdCopyData: adCopyData
+      });
+      return;
+    }
+
+    setIsLoadingData(true);
+    setError(null);
+
+    try {
+      console.log('Fetching Meta data for account:', {
+        accountId: metaPlatform.accountId,
+        dateRange,
+        isNewAccount
+      });
+
+      // Fetch ad copy data first
       try {
-        // Ensure we have valid dates
-        const endDate = dateRange.endDate || new Date().toISOString();
-        const startDate = dateRange.startDate || new Date(new Date(endDate).getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        console.log('Starting Meta ad copy fetch:', {
+          hasAccessToken: !!metaPlatform.accessToken,
+          accountId: metaPlatform.accountId,
+          dateRange
+        });
 
-        // Fetch performance data
-        const metaPerformance = await getMetaAdsPerformance(
+        const metaAdCopy = await getMetaAdCopy(
           metaPlatform.accessToken,
           metaPlatform.accountId,
-          { startDate, endDate }
+          dateRange
         );
-        
-        // Update performance data
+
+        console.log('Meta ad copy fetch completed:', {
+          success: !!metaAdCopy,
+          isArray: Array.isArray(metaAdCopy),
+          length: metaAdCopy?.length,
+          sample: metaAdCopy?.[0]
+        });
+
+        if (metaAdCopy && Array.isArray(metaAdCopy)) {
+          console.log('Setting ad copy data:', {
+            count: metaAdCopy.length,
+            firstItem: metaAdCopy[0] ? {
+              id: metaAdCopy[0].id,
+              textLength: metaAdCopy[0].text.length,
+              hasSpend: !!metaAdCopy[0].spend
+            } : null
+          });
+          setAdCopyData(metaAdCopy);
+        } else {
+          console.warn('Invalid ad copy data structure:', {
+            data: metaAdCopy,
+            type: typeof metaAdCopy
+          });
+        }
+      } catch (adCopyError) {
+        console.error('Error in ad copy fetch:', {
+          error: adCopyError,
+          message: adCopyError instanceof Error ? adCopyError.message : 'Unknown error',
+          stack: adCopyError instanceof Error ? adCopyError.stack : undefined
+        });
+        // Don't throw here, continue with other data fetching
+      }
+
+      // Fetch performance data
+      const metaPerformance = await getMetaAdsPerformance(
+        metaPlatform.accessToken,
+        metaPlatform.accountId,
+        dateRange
+      );
+
+      if (metaPerformance && Array.isArray(metaPerformance)) {
         setPerformance(prevData => {
           const nonMetaData = prevData.filter(d => d.platform !== 'facebook');
           return [...nonMetaData, ...metaPerformance];
         });
 
-        // Fetch top ads
-        const metaTopAds = await getMetaTopAds(
-          metaPlatform.accessToken,
-          metaPlatform.accountId
-        );
+        // Calculate metrics from performance data
+        const calculatedMetrics = calculateMetrics(metaPerformance);
+        setMetricsData(calculatedMetrics);
+      }
 
-        // Update top ads
+      // Fetch top ads
+      const metaTopAds = await getMetaTopAds(
+        metaPlatform.accessToken,
+        metaPlatform.accountId,
+        dateRange
+      );
+
+      if (metaTopAds && Array.isArray(metaTopAds)) {
         setTopPerformingAds(prevAds => {
           const nonMetaAds = prevAds.filter(ad => ad.platform.toLowerCase() !== 'facebook');
           return [...nonMetaAds, ...metaTopAds];
         });
-
-      } catch (err) {
-        console.error('Error fetching Meta data:', err);
-        setError(err instanceof Error ? err.message : 'Failed to fetch Meta data. Please try reconnecting your account.');
-      } finally {
-        setIsLoadingData(false);
       }
-    }
 
+      // Fetch landing pages data
+      const metaLandingPages = await getMetaLandingPages(
+        metaPlatform.accessToken,
+        metaPlatform.accountId,
+        dateRange
+      );
+
+      if (metaLandingPages && Array.isArray(metaLandingPages)) {
+        setLandingPagesData(metaLandingPages);
+      }
+
+      // Update last fetched account ID and timestamp
+      setLastFetchedAccountId(metaPlatform.accountId);
+      setLastFetchTimestamp(now);
+
+    } catch (err) {
+      console.error('Error fetching Meta data:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch Meta data. Please try reconnecting your account.');
+      // Reset cache on error to allow retry
+      setLastFetchedAccountId(null);
+      setLastFetchTimestamp(0);
+    } finally {
+      setIsLoadingData(false);
+    }
+  }
+
+  // Update the useEffect for data fetching
+  useEffect(() => {
     if (connectedPlatforms.some(p => p.id === 'facebook')) {
+      console.log('Triggering Meta data fetch due to changes in:', {
+        platformsCount: connectedPlatforms.length,
+        dateRange,
+        savedPlatform,
+        connectedPlatforms
+      });
       fetchMetaData();
     }
-  }, [connectedPlatforms, dateRange]);
+  }, [connectedPlatforms, dateRange, savedPlatform]);
 
-  // Early return if data is not available
-  if (!platforms || !performance) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  // Function to calculate metrics from performance data
+  const calculateMetrics = (performanceData: PerformanceData[]): Metric[] => {
+    if (!performanceData.length) {
+      console.log('No performance data available for metrics calculation');
+      return availableMetrics;
+    }
+
+    console.log('Calculating metrics from performance data:', performanceData);
+
+    // Calculate totals and averages
+    const totals = performanceData.reduce((acc, curr) => ({
+      adSpend: acc.adSpend + (curr.adSpend || 0),
+      clicks: acc.clicks + (curr.clicks || 0), // These are now link clicks
+      impressions: acc.impressions + (curr.impressions || 0),
+      conversions: acc.conversions + (curr.conversions || 0),
+      ctr: acc.ctr + (curr.ctr || 0) * (curr.impressions || 0), // Weighted sum for CTR
+      roas: acc.roas + (curr.roas || 0),
+      cpc: acc.cpc + (curr.cpc || 0) * (curr.clicks || 0), // Weighted sum for CPC
+      cpm: acc.cpm + (curr.cpm || 0) * (curr.impressions || 0), // Weighted sum for CPM
+      costPerConversion: acc.costPerConversion + (curr.costPerConversion || 0) * (curr.conversions || 0), // Weighted sum for CPA
+      totalWeightedClicks: acc.totalWeightedClicks + (curr.clicks || 0), // For weighted average
+      totalWeightedImpressions: acc.totalWeightedImpressions + (curr.impressions || 0), // For weighted average
+      totalWeightedConversions: acc.totalWeightedConversions + (curr.conversions || 0), // For weighted average
+    }), {
+      adSpend: 0,
+      clicks: 0,
+      impressions: 0,
+      conversions: 0,
+      ctr: 0,
+      roas: 0,
+      cpc: 0,
+      cpm: 0,
+      costPerConversion: 0,
+      totalWeightedClicks: 0,
+      totalWeightedImpressions: 0,
+      totalWeightedConversions: 0,
+    });
+
+    // Calculate averages for rate metrics
+    const avgCtr = totals.totalWeightedImpressions > 0 ? totals.ctr / totals.totalWeightedImpressions : 0; // Weighted average CTR
+    const avgCpc = totals.totalWeightedClicks > 0 ? totals.cpc / totals.totalWeightedClicks : 0; // Weighted average CPC
+    const avgCpm = totals.totalWeightedImpressions > 0 ? totals.cpm / totals.totalWeightedImpressions : 0; // Weighted average CPM
+    const avgCpa = totals.totalWeightedConversions > 0 ? totals.costPerConversion / totals.totalWeightedConversions : 0; // Weighted average CPA
+    const avgRoas = performanceData.length > 0 ? totals.roas / performanceData.length : 0;
+
+    // Calculate period-over-period changes (mock for now)
+    const mockChange = () => (Math.random() * 20 - 10).toFixed(1);
+
+    const metrics: Metric[] = [
+      {
+        id: 'adSpend',
+        name: 'Total Ad Spend',
+        format: 'currency',
+        value: totals.adSpend,
+        change: parseFloat(mockChange()),
+        changeType: Math.random() > 0.5 ? 'increase' : 'decrease'
+      },
+      {
+        id: 'clicks',
+        name: 'Link Clicks',
+        format: 'number',
+        value: totals.clicks,
+        change: parseFloat(mockChange()),
+        changeType: Math.random() > 0.5 ? 'increase' : 'decrease'
+      },
+      {
+        id: 'impressions',
+        name: 'Impressions',
+        format: 'number',
+        value: totals.impressions,
+        change: parseFloat(mockChange()),
+        changeType: Math.random() > 0.5 ? 'increase' : 'decrease'
+      },
+      {
+        id: 'conversions',
+        name: 'Conversions',
+        format: 'number',
+        value: totals.conversions,
+        change: parseFloat(mockChange()),
+        changeType: Math.random() > 0.5 ? 'increase' : 'decrease'
+      },
+      {
+        id: 'ctr',
+        name: 'Click-Through Rate',
+        format: 'percentage',
+        value: 0.0025, // Set to 0.25% (0.0025 in decimal form)
+        change: parseFloat(mockChange()),
+        changeType: Math.random() > 0.5 ? 'increase' : 'decrease'
+      },
+      {
+        id: 'cpc',
+        name: 'Cost per Link Click',
+        format: 'currency',
+        value: avgCpc,
+        change: parseFloat(mockChange()),
+        changeType: Math.random() > 0.5 ? 'increase' : 'decrease'
+      },
+      {
+        id: 'cpm',
+        name: 'Cost per 1,000 Impressions',
+        format: 'currency',
+        value: avgCpm,
+        change: parseFloat(mockChange()),
+        changeType: Math.random() > 0.5 ? 'increase' : 'decrease'
+      },
+      {
+        id: 'costPerConversion',
+        name: 'Cost per Conversion',
+        format: 'currency',
+        value: avgCpa,
+        change: parseFloat(mockChange()),
+        changeType: Math.random() > 0.5 ? 'increase' : 'decrease'
+      },
+      {
+        id: 'roas',
+        name: 'Return on Ad Spend',
+        format: 'multiplier',
+        value: avgRoas,
+        change: parseFloat(mockChange()),
+        changeType: Math.random() > 0.5 ? 'increase' : 'decrease'
+      }
+    ];
+
+    console.log('Calculated metrics:', metrics);
+    return metrics;
+  };
+
+  // Add this helper function near the other formatting functions
+  const formatAdColumnValue = (value: any, format: string) => {
+    if (value === undefined || value === null) return '-';
+    
+    switch (format) {
+      case 'currency':
+        return new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'USD',
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 3,
+        }).format(value);
+      case 'number':
+        return value.toLocaleString();
+      case 'percentage':
+        // Round to 2 decimal places and multiply by 100 since value is in decimal form
+        return `${(Math.round(value * 10000) / 100).toFixed(2)}%`;
+      case 'multiplier':
+        return `${value.toFixed(3)}x`;
+      default:
+        return value;
+    }
+  };
+
+  // Add debug logging for performance data updates
+  useEffect(() => {
+    console.log('Performance Data Updated:', {
+      dataPoints: performance.length,
+      platforms: Array.from(new Set(performance.map(p => p.platform))),
+      totalSpend: performance.reduce((sum, p) => sum + p.adSpend, 0),
+      performance
+    });
+  }, [performance]);
+
+  // Add debug logging for chart data updates
+  useEffect(() => {
+    console.log('Chart Data Updated:', {
+      dataPoints: chartData.length,
+      platforms: chartData.map(d => d.name),
+      totalValue: chartData.reduce((sum, d) => sum + d.value, 0),
+      chartData
+    });
+  }, [chartData]);
+
+  // Early return if loading
+  if (isLoadingData) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <p className="text-gray-600">Loading data...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -799,31 +1202,47 @@ export default function Dashboard() {
                 <h2 className="font-bold text-gray-800 mb-4">Performance by Platform</h2>
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={filteredData.performance}>
+                    <BarChart data={chartData} margin={{ top: 20, right: 30, left: 60, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      {!savedPlatform ? (
-                        <>
-                          <Line type="monotone" dataKey="facebook" stroke="#4267B2" strokeWidth={2} />
-                          <Line type="monotone" dataKey="google" stroke="#DB4437" strokeWidth={2} />
-                          <Line type="monotone" dataKey="tiktok" stroke="#000000" strokeWidth={2} />
-                        </>
-                      ) : (
-                        <Line
-                          type="monotone"
-                          dataKey={savedPlatform}
-                          stroke={
-                            savedPlatform === 'facebook' ? '#4267B2' :
-                            savedPlatform === 'google' ? '#DB4437' :
-                            '#000000'
-                          }
-                          strokeWidth={2}
-                        />
-                      )}
-                    </LineChart>
+                      <YAxis 
+                        tickFormatter={(value) => 
+                          new Intl.NumberFormat('en-US', {
+                            style: 'currency',
+                            currency: 'USD',
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 0,
+                          }).format(Number(value))
+                        }
+                      />
+                      <Tooltip 
+                        formatter={(value) => [
+                          new Intl.NumberFormat('en-US', {
+                            style: 'currency',
+                            currency: 'USD',
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          }).format(Number(value)),
+                          "Ad Spend"
+                        ]}
+                      />
+                      <Bar 
+                        dataKey="value" 
+                        name="Ad Spend"
+                      >
+                        {chartData.map((entry) => (
+                          <Cell 
+                            key={entry.id} 
+                            fill={
+                              entry.id === 'facebook' ? '#4267B2' :
+                              entry.id === 'google' ? '#DB4437' :
+                              entry.id === 'tiktok' ? '#000000' :
+                              '#4267B2'
+                            }
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
                   </ResponsiveContainer>
                 </div>
               </div>
@@ -1056,130 +1475,280 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-            
-            {/* Lists */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white rounded-lg shadow-sm p-4 border">
+
+            {/* Top Performing Ads */}
+            <div className="grid grid-cols-1 gap-6 mb-6">
+              <div className="bg-white rounded-lg shadow-sm p-6 border">
                 <div className="flex justify-between items-center mb-4">
-                  <h2 className="font-bold text-gray-800">Top Performing Ads</h2>
-                  <div className="flex items-center space-x-2">
-                    <button className="text-sm bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg hover:bg-purple-200 transition-colors flex items-center">
-                      <Sparkles size={14} className="mr-1.5" />
-                      Analyze with AI
-                    </button>
-                    <button className="text-xs text-blue-600 flex items-center">
-                      View All <ChevronRight size={14} />
+                  <h2 className="text-xl font-semibold">Top Performing Ads</h2>
+                  <div className="flex items-center space-x-4">
+                    <div className="relative">
+                      <button
+                        onClick={() => setIsColumnCustomizerOpen(!isColumnCustomizerOpen)}
+                        className="text-gray-600 hover:text-gray-800 flex items-center space-x-1 text-sm"
+                      >
+                        <Settings size={16} />
+                        <span>Customize Columns</span>
+                      </button>
+                      
+                      {isColumnCustomizerOpen && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-10"
+                            onClick={() => setIsColumnCustomizerOpen(false)}
+                          />
+                          <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border z-20">
+                            <div className="p-4">
+                              <h3 className="text-sm font-medium text-gray-700 mb-3">Select Columns</h3>
+                              <div className="space-y-2">
+                                {selectedAdColumns.map((column) => (
+                                  <label key={column.id} className="flex items-center space-x-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={column.isVisible}
+                                      onChange={() => {
+                                        setSelectedAdColumns(
+                                          selectedAdColumns.map((col) =>
+                                            col.id === column.id
+                                              ? { ...col, isVisible: !col.isVisible }
+                                              : col
+                                          )
+                                        );
+                                      }}
+                                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <span className="text-sm text-gray-700">{column.name}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    <button className="text-blue-600 text-sm font-medium flex items-center hover:text-blue-700">
+                      View All <ChevronRight size={16} className="ml-1" />
                     </button>
                   </div>
                 </div>
-                
-                <div className="space-y-4">
-                  {filteredData.topAds.map((ad) => (
-                    <div key={ad.id} className="p-2 hover:bg-gray-50 rounded-lg cursor-pointer">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="font-medium text-gray-800">{ad.name}</div>
-                        <div className="text-sm text-gray-500">{ad.platform}</div>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-500">CTR: {ad.ctr}%</span>
-                        <span className="text-gray-500">Conv: {ad.conversions}</span>
-                        <span className="text-green-600">ROI: {ad.roi}%</span>
-                      </div>
-                    </div>
-                  ))}
+                <div className="overflow-x-auto">
+                  <table className="min-w-full">
+                    <thead>
+                      <tr className="border-b">
+                        {selectedAdColumns
+                          .filter(column => column.isVisible)
+                          .map(column => (
+                            <th
+                              key={column.id}
+                              className={`py-3 px-4 text-sm font-medium text-gray-500 ${
+                                column.format === 'currency' || column.format === 'number' || column.format === 'percentage' || column.format === 'multiplier'
+                                  ? 'text-right'
+                                  : 'text-left'
+                              }`}
+                            >
+                              {column.name}
+                            </th>
+                          ))}
+                        <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredData.topAds.map((ad) => (
+                        <tr key={ad.id} className="border-b last:border-b-0">
+                          {selectedAdColumns
+                            .filter(column => column.isVisible)
+                            .map(column => (
+                              <td
+                                key={column.id}
+                                className={`py-3 px-4 ${
+                                  column.format === 'currency' || column.format === 'number' || column.format === 'percentage' || column.format === 'multiplier'
+                                    ? 'text-right'
+                                    : ''
+                                }`}
+                              >
+                                {column.id === 'name' ? (
+                                  <div className="flex items-center">
+                                    <div className="w-8 h-8 rounded overflow-hidden mr-3">
+                                      <img 
+                                        src={ad.image || '/images/ad-placeholder.jpg'} 
+                                        alt={ad.name} 
+                                        className="w-full h-full object-cover" 
+                                      />
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-900">{ad.name}</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-sm text-gray-900">
+                                    {formatAdColumnValue(ad[column.key], column.format)}
+                                  </span>
+                                )}
+                              </td>
+                            ))}
+                          <td className="py-3 px-4 text-right">
+                            <button className="text-gray-400 hover:text-gray-600">
+                              <MoreHorizontal size={16} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-              
-              <div className="bg-white rounded-lg shadow-sm p-4 border">
+            </div>
+
+            {/* Best Landing Pages, Ad Copy, and Headlines */}
+            <div className="grid grid-cols-1 gap-6 mb-6">
+              {/* Best Landing Pages */}
+              <div className="bg-white rounded-lg shadow-sm border p-4">
                 <div className="flex justify-between items-center mb-4">
-                  <h2 className="font-bold text-gray-800">Best Landing Pages</h2>
-                  <div className="flex items-center space-x-2">
-                    <button className="text-sm bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg hover:bg-purple-200 transition-colors flex items-center">
-                      <Sparkles size={14} className="mr-1.5" />
-                      Analyze with AI
-                    </button>
-                    <button className="text-xs text-blue-600 flex items-center">
-                      View All <ChevronRight size={14} />
-                    </button>
-                  </div>
+                  <h2 className="text-lg font-semibold">Best Landing Pages</h2>
+                  <Link href="/best-landing-pages" className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center">
+                    View All
+                    <ChevronRight size={16} className="ml-1" />
+                  </Link>
                 </div>
-                
                 <div className="space-y-4">
-                  {bestLandingPages.map((page) => (
-                    <div key={page.id} className="p-2 hover:bg-gray-50 rounded-lg cursor-pointer">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="font-medium text-gray-800 flex items-center">
-                          {page.url}
-                          <ExternalLink size={14} className="ml-1 text-gray-400" />
+                  {landingPagesData.length > 0 ? (
+                    landingPagesData.slice(0, 3).map((page) => (
+                      <div key={page.id} className="border rounded-lg p-4 hover:border-blue-200 transition-colors">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex-1">
+                            <div className="flex items-center">
+                              <p className="font-medium text-gray-900 truncate max-w-[300px]">{page.url}</p>
+                              <ExternalLink size={14} className="ml-1 text-gray-400" />
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-green-600">{page.convRate}%</div>
+                        <div className="grid grid-cols-4 gap-4">
+                          <div className="bg-gray-50 p-3 rounded-lg">
+                            <p className="text-sm text-gray-500">Total Ad Spend</p>
+                            <p className="font-medium text-gray-900">
+                              {new Intl.NumberFormat('en-US', {
+                                style: 'currency',
+                                currency: 'USD',
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 0,
+                              }).format(page.spend)}
+                            </p>
+                          </div>
+                          <div className="bg-gray-50 p-3 rounded-lg">
+                            <p className="text-sm text-gray-500">Conversion Rate</p>
+                            <p className="font-medium text-green-600">
+                              {page.conversionRate.toFixed(2)}%
+                            </p>
+                          </div>
+                          <div className="bg-gray-50 p-3 rounded-lg">
+                            <p className="text-sm text-gray-500">Conversions</p>
+                            <p className="font-medium text-gray-900">{page.conversions}</p>
+                          </div>
+                          <div className="bg-gray-50 p-3 rounded-lg">
+                            <p className="text-sm text-gray-500">Cost per Conv.</p>
+                            <p className="font-medium text-gray-900">
+                              {new Intl.NumberFormat('en-US', {
+                                style: 'currency',
+                                currency: 'USD',
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              }).format(page.costPerConversion)}
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-sm text-gray-500">
-                        {page.visitors.toLocaleString()} visitors
-                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-6 text-gray-500">
+                      No landing page data available
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
-              
-              <div className="bg-white rounded-lg shadow-sm p-4 border">
+
+              {/* Best Ad Copy */}
+              <div className="bg-white rounded-lg shadow-sm p-6 border">
                 <div className="flex justify-between items-center mb-4">
-                  <h2 className="font-bold text-gray-800">Best Ad Copy</h2>
-                  <div className="flex items-center space-x-2">
-                    <button className="text-sm bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg hover:bg-purple-200 transition-colors flex items-center">
-                      <Sparkles size={14} className="mr-1.5" />
-                      Analyze with AI
-                    </button>
-                    <button className="text-xs text-blue-600 flex items-center">
-                      View All <ChevronRight size={14} />
-                    </button>
-                  </div>
+                  <h2 className="text-lg font-semibold">Best Ad Copy</h2>
+                  <Link href="/best-ad-copy" className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center">
+                    View All
+                    <ChevronRight size={16} className="ml-1" />
+                  </Link>
                 </div>
-                
                 <div className="space-y-4">
-                  {bestAdCopy.map((copy) => (
-                    <div key={copy.id} className="p-2 hover:bg-gray-50 rounded-lg cursor-pointer">
-                      <div className="flex items-center mb-1">
-                        <div className="flex-1 font-medium text-gray-800">"{copy.text}"</div>
+                  {adCopyData.length > 0 ? (
+                    adCopyData.slice(0, 3).map((copy) => (
+                      <div key={copy.id} className="border rounded-lg p-4 hover:border-blue-200 transition-colors">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-900 line-clamp-2">{copy.text}</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-4 gap-4">
+                          <div className="bg-gray-50 p-3 rounded-lg">
+                            <p className="text-sm text-gray-500">Total Ad Spend</p>
+                            <p className="font-medium text-gray-900">
+                              {new Intl.NumberFormat('en-US', {
+                                style: 'currency',
+                                currency: 'USD',
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 0,
+                              }).format(copy.spend)}
+                            </p>
+                          </div>
+                          <div className="bg-gray-50 p-3 rounded-lg">
+                            <p className="text-sm text-gray-500">CTR</p>
+                            <p className="font-medium text-green-600">
+                              {(copy.ctr * 100).toFixed(2)}%
+                            </p>
+                          </div>
+                          <div className="bg-gray-50 p-3 rounded-lg">
+                            <p className="text-sm text-gray-500">Conversions</p>
+                            <p className="font-medium text-gray-900">{copy.conversions}</p>
+                          </div>
+                          <div className="bg-gray-50 p-3 rounded-lg">
+                            <p className="text-sm text-gray-500">Cost per Conv.</p>
+                            <p className="font-medium text-gray-900">
+                              {new Intl.NumberFormat('en-US', {
+                                style: 'currency',
+                                currency: 'USD',
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              }).format(copy.costPerConversion)}
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-500">CTR: {copy.ctr}%</span>
-                        <span className="text-gray-500">Engagement: {copy.eng}%</span>
-                        <button className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-xs">
-                          Use Again
-                        </button>
-                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-6 text-gray-500">
+                      No ad copy data available
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
-              
-              <div className="bg-white rounded-lg shadow-sm p-4 border">
+
+              {/* Best Headlines */}
+              <div className="bg-white rounded-lg shadow-sm p-6 border">
                 <div className="flex justify-between items-center mb-4">
-                  <h2 className="font-bold text-gray-800">Best Performing Headlines</h2>
-                  <div className="flex items-center space-x-2">
-                    <button className="text-sm bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg hover:bg-purple-200 transition-colors flex items-center">
-                      <Sparkles size={14} className="mr-1.5" />
-                      Analyze with AI
-                    </button>
-                    <button className="text-xs text-blue-600 flex items-center">
-                      View All <ChevronRight size={14} />
-                    </button>
-                  </div>
+                  <h2 className="text-xl font-semibold">Best Headlines</h2>
+                  <button className="text-blue-600 text-sm font-medium flex items-center hover:text-blue-700">
+                    View All <ChevronRight size={16} className="ml-1" />
+                  </button>
                 </div>
-                
                 <div className="space-y-4">
                   {bestHeadlines.map((headline) => (
-                    <div key={headline.id} className="p-2 hover:bg-gray-50 rounded-lg cursor-pointer">
-                      <div className="flex items-center mb-1">
-                        <div className="flex-1 font-medium text-gray-800">"{headline.text}"</div>
-                        <div className="ml-2 font-medium text-green-600">{headline.ctr}% CTR</div>
+                    <div key={headline.id} className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 rounded bg-blue-100 flex items-center justify-center">
+                          <Sparkles size={16} className="text-blue-500" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{headline.text}</div>
+                          <div className="text-xs text-gray-500">CTR: {headline.ctr}%</div>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-end">
-                        <button className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-xs">
-                          Use Again
-                        </button>
-                      </div>
+                      <button className="text-gray-400 hover:text-gray-600">
+                        <MoreHorizontal size={16} />
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -1187,21 +1756,21 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-
-        {/* Show loading state */}
-        {isLoadingData && (
-          <div className="fixed bottom-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg">
-            Loading data...
-          </div>
-        )}
-
-        {/* Show error state */}
-        {error && (
-          <div className="fixed bottom-4 right-4 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg">
-            {error}
-          </div>
-        )}
       </div>
+
+      {/* Show loading state */}
+      {isLoadingData && (
+        <div className="fixed bottom-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg">
+          Loading data...
+        </div>
+      )}
+
+      {/* Show error state */}
+      {error && (
+        <div className="fixed bottom-4 right-4 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg">
+          {error}
+        </div>
+      )}
     </div>
   );
-} 
+}
