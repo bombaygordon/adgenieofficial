@@ -41,8 +41,8 @@ export default function TopAdsPage() {
                     <p className="font-medium text-gray-900">{ad.conversions}</p>
                   </div>
                   <div className="bg-gray-50 p-3 rounded-lg">
-                    <p className="text-gray-500">ROI</p>
-                    <p className="font-medium text-green-600">{ad.roi}%</p>
+                    <p className="text-gray-500">ROAS</p>
+                    <p className="font-medium text-green-600">{ad.roas}x</p>
                   </div>
                 </div>
               </div>
